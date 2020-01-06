@@ -1,0 +1,81 @@
+/*
+ * カーソル位置の単語をハイライト表示する秀丸マクロ
+ *
+ * Ver.2.9 (2013-12-23)
+ *
+ * 機能
+ * ・カーソル位置の単語を検索し、ハイライト表示します。
+ * ・検索は単語単位に大文字小文字を区別して行われます。
+ * ・文字列を選択中にこのマクロが実行された場合は、選択中の文字列をハイライト表示します。
+ * ・この場合は単語単位ではなく、大文字と小文字も区別せず、あいまい検索が行われます。
+ * ・この様に、このマクロは検索条件を変更するため、元の検索条件を設定ファイル highlight.ini に保存します。
+ *   （このマクロと同じフォルダに作成されます。）
+ * ・「検索条件を復元してから検索・置換を行う秀丸マクロ」を合わせて利用することで、
+ *   このマクロによる検索条件変更の影響を抑えることが出来ます。
+ *   Ctrl + F, Ctrl + R にそれぞれ付属の find.mac, replace.mac を割り当てておくと良いです。
+ *
+ * Yasunori Miyamoto
+ * http://tipszone.jp/20121003_hidemaru-config/
+ * mailto: nori@tipszone.jp
+ */
+
+// 検索条件を highlight.ini ファイルに保存
+$$ini_file = currentmacrodirectory + "\\highlight.ini";
+##search_option = getininum($$ini_file, getenv("UserName"), "search_option");
+if (##search_option == 0) {
+	writeininum $$ini_file, getenv("UserName"), "search_option", searchoption;
+}
+
+if (selecting) {
+	$$keyword = gettext(seltopx, seltopy, selendx, selendy);
+
+	// 選択範囲に空白などが含まれている場合でも、選択されている位置から検索を開始する
+	moveto2 seltopcolumn, seltoplineno;
+
+	loaddll "HmJre.dll";
+	##i = dllfunc("FindRegular", "^[\\s　\uA0]+$", $$keyword, 0);	// \uA0: Non-breaking space
+	##j = strstr($$keyword, "\n");
+	if (##i == -1 && ##j == -1) {
+		// あいまい検索
+		searchdown2 $$keyword, nocasesense, noregular, fuzzy, hilight;
+	} else {
+		// 検索文字列が空白類文字だけからなる場合、および、
+		// 改行が含まれる場合はあいまい検索にしない
+		searchdown2 $$keyword, nocasesense, noregular, hilight;
+	}
+} else {
+	// カーソルが単語の終端にあると思われる場合は、左に動かす
+	call CURSOR_IS_ON_WORD_END;
+	if (##return) left;
+
+	selectword;
+	$$keyword = gettext(seltopx, seltopy, selendx, selendy);
+	if ($$keyword != "") {
+		// 単語単位で大文字小文字を区別して検索
+		searchdown2 $$keyword, word, casesense, noregular, hilight;
+	}
+	selectword2;
+}
+
+endmacro;
+
+
+// カーソルが単語の終端にあるか調べる。
+// Return: boolean 単語の終端にあると思われる場合には true そうでなければ false
+CURSOR_IS_ON_WORD_END:
+	// Before
+	##code = unicode(gettext2(column - 1, lineno, column, lineno, 1));
+	call IS_ASCII_CONTROL_OR_MARK ##code;
+	if (##return) return false;
+
+	// After
+	##code = unicode(gettext2(column, lineno, column + 2, lineno, 1));
+	call IS_ASCII_CONTROL_OR_MARK ##code;
+	return ##return;
+
+// 文字コードがコントロールコードや記号か調べる。
+// Param: Integer 文字コード
+// Return: boolean コントロールコードや記号であれば true, そうでなければ false
+IS_ASCII_CONTROL_OR_MARK:
+	return (##1 <= 127 && (##1 <= 47 || (58 <= ##1 && ##1 <= 64) ||
+		(91 <= ##1 && ##1 <= 94) || ##1 == 96 || 123 <= ##1));

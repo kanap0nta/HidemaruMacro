@@ -1,0 +1,25 @@
+/*
+ * 検索条件を復元してから置換を行う秀丸マクロ
+ * （カーソル位置の単語をハイライト表示する秀丸マクロの付属マクロ）
+ *
+ * Ver.1.3 (2014-01-03)
+ *
+ * Yasunori Miyamoto
+ * http://tipszone.jp/20121003_hidemaru-config/
+ * mailto: nori@tipszone.jp
+ */
+
+// 検索条件を復元
+$$ini_file = currentmacrodirectory + "\\highlight.ini";
+##search_option = getininum($$ini_file, getenv("UserName"), "search_option");
+if (##search_option != 0) {
+	setsearch "", ##search_option;
+	writeininum $$ini_file, getenv("UserName"), "search_option", 0;
+}
+
+begingroupundo;
+replace;
+##rslt = result;
+endgroupundo 1;
+
+if (0 < ##rslt) message str(##rslt) + "個の置換を行いました。";
